@@ -1,0 +1,8 @@
+version: "3.9"
+
+services:
+  worker:
+    build:
+      context: ./worker
+    ports:
+      - "8081-8089:7777"
