@@ -1,26 +1,25 @@
 use std::{
-    pin::Pin,
-    task::{Context, Poll},
+    pin::Pin, sync::Arc, task::{Context, Poll}
 };
 
 use bytes::Bytes;
 use http_body_util::{BodyExt, combinators::BoxBody};
 use hyper::{Request, Response, body::Incoming};
 use hyper_util::rt::TokioIo;
-use tokio::net::TcpStream;
+use tokio::{net::TcpStream, sync::RwLock};
 use tower::Service;
+
+use crate::services::LoadBalancerState;
 
 type ClientBuilder = hyper::client::conn::http1::Builder;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct LoadBalancer {
-    // TODO: update to actual shared state
-    // the load balancing logic will be added here
-    state: i32,
+    state: Arc<RwLock<LoadBalancerState>>,
 }
 
 impl LoadBalancer {
-    pub fn new(state: i32) -> Self {
+    pub fn new(state: Arc<RwLock<LoadBalancerState>>) -> Self {
         Self { state }
     }
 }
@@ -37,9 +36,14 @@ impl Service<Request<Incoming>> for LoadBalancer {
     }
 
     fn call(&mut self, req: Request<Incoming>) -> Self::Future {
+        let state = self.state.clone();
+
         Box::pin(async move {
-            // hardcoded worker
-            let stream = TcpStream::connect(("0.0.0.0", 8081)).await.unwrap();
+            let host = state.write().await.get_host();
+
+            println!("Forwarding request to {host}");
+
+            let stream = TcpStream::connect(host).await.unwrap();
             let io = TokioIo::new(stream);
 
             let (mut sender, conn) = ClientBuilder::new()

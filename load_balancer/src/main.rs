@@ -1,12 +1,12 @@
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
 
 use hyper::server::conn::http1;
 
 use hyper_util::{rt::TokioIo, service::TowerToHyperService};
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, sync::RwLock};
 use tower::ServiceBuilder;
 
-use crate::{middleware::Logger, services::LoadBalancer};
+use crate::{middleware::Logger, services::{LoadBalancer, LoadBalancerState}};
 
 pub mod middleware;
 pub mod services;
@@ -21,7 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         tokio::spawn(async move {
             let load_balancer_tower_service = ServiceBuilder::new()
                 .layer_fn(Logger::new)
-                .service(LoadBalancer::new(3));
+                .service(LoadBalancer::new(Arc::new(RwLock::new(LoadBalancerState::new()))));
 
             let hyper_service = TowerToHyperService::new(load_balancer_tower_service);
 
