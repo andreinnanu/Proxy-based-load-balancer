@@ -1,6 +1,7 @@
 use clap::Parser;
-use load_balancer::services::LoadBalancer;
-use std::net::SocketAddr;
+use load_balancer::services::{LoadBalancer, LoadBalancerState};
+use std::{net::SocketAddr, sync::Arc};
+use tokio::sync::RwLock;
 
 pub mod middleware;
 pub mod services;
@@ -17,6 +18,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     color_eyre::install().expect("Failed to install color_eyre");
 
     let args = Cli::parse();
-    load_balancer::run(args.addr, LoadBalancer::new(3)).await?;
+    load_balancer::run(
+        args.addr,
+        LoadBalancer::new(Arc::new(RwLock::new(LoadBalancerState::new()))),
+    )
+    .await?;
     Ok(())
 }
