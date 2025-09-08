@@ -3,13 +3,14 @@ use hyper::server::conn::http1;
 use hyper_util::{rt::TokioIo, service::TowerToHyperService};
 use tokio::net::TcpListener;
 use tower::ServiceBuilder;
+use color_eyre::eyre::Result;
 
 use crate::{middleware::Logger, services::LoadBalancer};
 
 pub mod middleware;
 pub mod services;
 
-pub async fn run(addr: SocketAddr, load_balancer: LoadBalancer) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn run(addr: SocketAddr, load_balancer: LoadBalancer) -> Result<()> {
     let listener = TcpListener::bind(addr).await?;
     loop {
         let (stream, _) = listener.accept().await?;
