@@ -8,15 +8,9 @@ pub trait Algorithm: Send + Sync {
     fn get_host(&mut self, hosts: &[SocketAddr]) -> SocketAddr;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct RoundRobin {
     last_host: usize
-}
-
-impl RoundRobin {
-    pub fn new() -> Self {
-        Self { last_host: 0 }
-    }
 }
 
 impl Algorithm for RoundRobin {

@@ -16,7 +16,7 @@ impl LoadBalancerState {
                 "0.0.0.0:8083".parse().unwrap(),
                 "0.0.0.0:8084".parse().unwrap(),
             ],
-            algorithm: Box::new(RoundRobin::new()),
+            algorithm: Box::new(RoundRobin::default()),
         }
     }
 
