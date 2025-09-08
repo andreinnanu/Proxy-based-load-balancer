@@ -1,36 +1,27 @@
+use clap::Parser;
+use load_balancer::services::{LoadBalancer, LoadBalancerState};
 use std::{net::SocketAddr, sync::Arc};
-
-use hyper::server::conn::http1;
-
-use hyper_util::{rt::TokioIo, service::TowerToHyperService};
-use tokio::{net::TcpListener, sync::RwLock};
-use tower::ServiceBuilder;
-
-use crate::{middleware::Logger, services::{LoadBalancer, LoadBalancerState}};
+use tokio::sync::RwLock;
 
 pub mod middleware;
 pub mod services;
 
+#[derive(Parser, Debug)]
+#[command(about = "Runs the load balancer on the specified address", long_about = None)]
+struct Cli {
+    #[arg(short, long, default_value_t = SocketAddr::from(([127, 0, 0, 1], 3000)))]
+    addr: SocketAddr,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    let listener = TcpListener::bind(addr).await?;
-    loop {
-        let (stream, _) = listener.accept().await?;
-        let io = TokioIo::new(stream);
-        tokio::spawn(async move {
-            let load_balancer_tower_service = ServiceBuilder::new()
-                .layer_fn(Logger::new)
-                .service(LoadBalancer::new(Arc::new(RwLock::new(LoadBalancerState::new()))));
+    color_eyre::install().expect("Failed to install color_eyre");
 
-            let hyper_service = TowerToHyperService::new(load_balancer_tower_service);
-
-            if let Err(err) = http1::Builder::new()
-                .serve_connection(io, hyper_service)
-                .await
-            {
-                eprintln!("server error: {err}");
-            }
-        });
-    }
+    let args = Cli::parse();
+    load_balancer::run(
+        args.addr,
+        LoadBalancer::new(Arc::new(RwLock::new(LoadBalancerState::new()))),
+    )
+    .await?;
+    Ok(())
 }
