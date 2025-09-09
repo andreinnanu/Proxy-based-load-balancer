@@ -1,5 +1,7 @@
 use std::{
-    pin::Pin, sync::Arc, task::{Context, Poll}
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
 };
 
 use bytes::Bytes;
@@ -39,7 +41,10 @@ impl Service<Request<Incoming>> for LoadBalancer {
         let state = self.state.clone();
 
         Box::pin(async move {
-            let host = state.write().await.get_host();
+            let host;
+            {
+                host = state.write().await.get_host();
+            }
 
             println!("Forwarding request to {host}");
 
