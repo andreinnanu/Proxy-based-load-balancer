@@ -1,6 +1,8 @@
-use std::net::SocketAddr;
+use std::{net::SocketAddr, path::PathBuf};
 
-use crate::services::{Algorithm, RoundRobin};
+use crate::{
+    services::{Algorithm, RoundRobin}, utils::Config,
+};
 
 pub struct LoadBalancerState {
     hosts: Vec<SocketAddr>,
@@ -8,14 +10,11 @@ pub struct LoadBalancerState {
 }
 
 impl LoadBalancerState {
-    pub fn new() -> Self {
+    pub fn new(config_file: &PathBuf) -> Self {
+        let config = Config::new(config_file);
+
         Self {
-            hosts: vec![
-                "0.0.0.0:8081".parse().unwrap(),
-                "0.0.0.0:8082".parse().unwrap(),
-                "0.0.0.0:8083".parse().unwrap(),
-                "0.0.0.0:8084".parse().unwrap(),
-            ],
+            hosts: config.hosts,
             algorithm: Box::new(RoundRobin::default()),
         }
     }
