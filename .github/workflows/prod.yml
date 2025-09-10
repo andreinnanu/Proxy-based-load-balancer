@@ -1,0 +1,38 @@
+name: Build
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout code from the repository
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+      # Cache dependencies to speed up build times
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          worker/.cargo
+          worker/target/
+          load_balancer/.cargo
+          load_balancer/target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: ${{ runner.os }}-cargo-
+
+    - name: Install Rust
+      run: rustup update stable && rustup default stable
+
+    - name: Build workers
+      working-directory: ./worker
+      run: |
+        cargo build --verbose
+
+    - name: Build load balancer
+      working-directory: ./load_balancer
+      run: |
+        cargo build --verbose
