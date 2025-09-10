@@ -1,6 +1,7 @@
 use std::time::Duration;
 
-use axum::{Router, http::StatusCode, response::IntoResponse, routing::get};
+use axum::{Router, extract::Query, http::StatusCode, response::IntoResponse, routing::get};
+use serde::Deserialize;
 
 const ADDRESS: &str = "0.0.0.0:7777";
 
@@ -18,7 +19,12 @@ async fn health() -> impl IntoResponse {
     (StatusCode::OK, "healthy")
 }
 
-async fn work() -> impl IntoResponse {
-    tokio::time::sleep(Duration::from_millis(10)).await;
+#[derive(Deserialize, Debug)]
+struct WorkParams {
+    duration_millis: Option<u64>,
+}
+
+async fn work(Query(params): Query<WorkParams>) -> impl IntoResponse {
+    tokio::time::sleep(Duration::from_millis(params.duration_millis.unwrap_or(10))).await;
     (StatusCode::OK, "worked hard")
 }
