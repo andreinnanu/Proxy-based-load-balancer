@@ -60,6 +60,7 @@ impl Service<Request<Incoming>> for LoadBalancer {
                 if let Err(err) = conn.await {
                     println!("Connection failed: {err:?}");
                 }
+                state.write().await.on_disconnect(&host);
             });
 
             let resp = sender.send_request(req).await?;
