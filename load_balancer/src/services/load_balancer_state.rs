@@ -1,7 +1,7 @@
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf};
 
 use crate::{
-    services::{Algorithm, RoundRobin, LeastConnections},
+    services::{Algorithm, LeastConnections, RoundRobin, Strategy},
     utils::Config,
 };
 
@@ -15,7 +15,7 @@ impl HostStatus {
     pub fn new() -> Self {
         Self {
             healthy: true,
-            open_connections: 0
+            open_connections: 0,
         }
     }
 }
@@ -35,13 +35,9 @@ impl LoadBalancerState {
             hosts.insert(host, HostStatus::new());
         }
 
-        // let algorithm = Box::new(RoundRobin::new(&mut hosts));
-        let algorithm = Box::new(LeastConnections);
-
-        Self {
-            hosts,
-            algorithm,
-        }
+        let algorithm = Box::new(RoundRobin::new(&mut hosts));
+        
+        Self { hosts, algorithm }
     }
 
     pub fn get_host(&mut self) -> SocketAddr {
@@ -54,14 +50,21 @@ impl LoadBalancerState {
         self.decrease_connections(host);
     }
 
+    pub fn set_algorithm(&mut self, strategy: Strategy) {
+        self.algorithm = match strategy {
+            Strategy::RoundRobin => Box::new(RoundRobin::new(&mut self.hosts)),
+            Strategy::LeastConnections => Box::new(LeastConnections),
+        }
+    }
+
     fn increase_connections(&mut self, host: &SocketAddr) {
-        if let Some(status) = self.hosts.get_mut(&host) {
+        if let Some(status) = self.hosts.get_mut(host) {
             status.open_connections += 1;
         }
     }
 
     fn decrease_connections(&mut self, host: &SocketAddr) {
-        if let Some(status) = self.hosts.get_mut(&host) {
+        if let Some(status) = self.hosts.get_mut(host) {
             status.open_connections -= 1;
         }
     }
