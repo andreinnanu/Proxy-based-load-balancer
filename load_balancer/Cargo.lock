@@ -613,6 +613,7 @@ dependencies = [
  "bytes",
  "clap",
  "color-eyre",
+ "http",
  "http-body-util",
  "hyper",
  "hyper-util",
