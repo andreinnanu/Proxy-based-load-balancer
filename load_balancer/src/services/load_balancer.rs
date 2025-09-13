@@ -7,8 +7,11 @@ use std::{
 use bytes::Bytes;
 use http_body_util::{BodyExt, Full, combinators::BoxBody};
 use hyper::{Method, Request, Response, body::Incoming};
-use hyper_util::rt::TokioIo;
-use tokio::{net::TcpStream, sync::RwLock};
+use hyper_util::{
+    client::legacy::{Client, connect::HttpConnector},
+    rt::TokioExecutor,
+};
+use tokio::sync::RwLock;
 use tower::Service;
 
 use crate::{
@@ -16,24 +19,27 @@ use crate::{
     utils::algorithm::{STRATEGY_QUERY_PARAM, SWITCH_ALGORITHM_ENDPOINT},
 };
 
-type ClientBuilder = hyper::client::conn::http1::Builder;
-
 #[derive(Clone)]
 pub struct LoadBalancer {
     state: Arc<RwLock<LoadBalancerState>>,
+    client: Arc<Client<HttpConnector, Incoming>>,
 }
 
 impl LoadBalancer {
     pub fn new(state: Arc<RwLock<LoadBalancerState>>) -> Self {
-        Self { state }
+        Self {
+            state,
+            client: Arc::new(Client::builder(TokioExecutor::new()).build(HttpConnector::new())),
+        }
     }
 }
 
-type ProxyResult = Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error>;
+type ProxyResult =
+    Result<Response<BoxBody<Bytes, hyper::Error>>, hyper_util::client::legacy::Error>;
 
 impl Service<Request<Incoming>> for LoadBalancer {
     type Response = Response<BoxBody<Bytes, hyper::Error>>;
-    type Error = hyper::Error;
+    type Error = hyper_util::client::legacy::Error;
     type Future = Pin<Box<dyn Future<Output = ProxyResult> + Send>>;
 
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -42,11 +48,12 @@ impl Service<Request<Incoming>> for LoadBalancer {
 
     fn call(&mut self, req: Request<Incoming>) -> Self::Future {
         let state = self.state.clone();
+        let client = self.client.clone();
 
         Box::pin(async move {
             match (req.method(), req.uri().path()) {
                 (&Method::GET, SWITCH_ALGORITHM_ENDPOINT) => switch_algorithm(req, state).await,
-                _ => forward_request(req, state).await,
+                _ => forward_request(req, state, client).await,
             }
         })
     }
@@ -77,37 +84,38 @@ async fn switch_algorithm(
 async fn forward_request(
     req: Request<Incoming>,
     state: Arc<RwLock<LoadBalancerState>>,
+    client: Arc<Client<HttpConnector, Incoming>>,
 ) -> ProxyResult {
-    let host = { state.write().await.get_host() };
-
+    let host = state.write().await.get_host();
     println!("Forwarding request to {host}");
-    let stream = match TcpStream::connect(&host).await {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("Failed to connect to {host}: {e:?}");
-            return Ok(build_http_response(500, "Failed to connect to upstream"));
+
+    let mut parts = req.uri().clone().into_parts();
+
+    if parts.scheme.is_none() {
+        parts.scheme = Some(http::uri::Scheme::HTTP);
+    }
+
+    parts.authority = Some(host.to_string().parse().expect("Valid host expected"));
+
+    let new_uri = match http::Uri::from_parts(parts) {
+        Ok(uri) => uri,
+        Err(_) => {
+            return Ok(build_http_response(500, "Invalid URI"));
         }
     };
 
-    let io = TokioIo::new(stream);
-    let (mut sender, conn) = ClientBuilder::new()
-        .preserve_header_case(true)
-        .title_case_headers(true)
-        .handshake(io)
-        .await?;
+    let mut new_req = req.map(|b| b);
+    *new_req.uri_mut() = new_uri;
 
-    let state_clone = state.clone();
-    tokio::task::spawn(async move {
-        if let Err(err) = conn.await {
-            eprintln!("Connection failed: {err:?}");
+    let resp = match client.request(new_req).await {
+        Ok(r) => r,
+        Err(_) => {
+            return Ok(build_http_response(502, "Upstream request failed"));
         }
-        state_clone.write().await.on_disconnect(&host);
-    });
+    };
 
-    let resp = sender.send_request(req).await?;
     Ok(resp.map(|b| b.boxed()))
 }
-
 fn build_http_response(response_status: u16, msg: &str) -> Response<BoxBody<Bytes, hyper::Error>> {
     let body: BoxBody<Bytes, hyper::Error> = Full::new(Bytes::from(msg.to_owned()))
         .map_err(|e| match e {})
