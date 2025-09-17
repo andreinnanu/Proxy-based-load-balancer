@@ -1,7 +1,9 @@
 use std::{
+    net::SocketAddr,
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
+    time::Duration,
 };
 
 use bytes::Bytes;
@@ -11,12 +13,18 @@ use hyper_util::{
     client::legacy::{Client, connect::HttpConnector},
     rt::TokioExecutor,
 };
-use tokio::sync::RwLock;
+use tokio::{
+    sync::RwLock,
+    time::{self, timeout},
+};
 use tower::Service;
 
 use crate::{
     services::{LoadBalancerState, Strategy},
-    utils::algorithm::{STRATEGY_QUERY_PARAM, SWITCH_ALGORITHM_ENDPOINT},
+    utils::{
+        algorithm::{STRATEGY_QUERY_PARAM, SWITCH_ALGORITHM_ENDPOINT},
+        constants::health_check::{CHECK_INTERVAL_SEC, TIMEOUT_MS},
+    },
 };
 
 #[derive(Clone)]
@@ -31,6 +39,38 @@ impl LoadBalancer {
             state,
             client: Arc::new(Client::builder(TokioExecutor::new()).build(HttpConnector::new())),
         }
+    }
+
+    pub async fn spawn_health_check_task(&self) {
+        let hosts: Vec<SocketAddr> = self.state.read().await.hosts.keys().cloned().collect();
+        let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new()).build_http();
+
+        let state = self.state.clone();
+        tokio::spawn(async move {
+            let mut interval = time::interval(Duration::from_secs(CHECK_INTERVAL_SEC));
+
+            loop {
+                interval.tick().await;
+                for host in &hosts {
+                    let req: Request<Full<Bytes>> = Request::builder()
+                        .method(Method::GET)
+                        .uri(format!("http://{host}/health"))
+                        .body(Full::from(""))
+                        .expect("Health check request builder");
+
+                    match timeout(Duration::from_millis(TIMEOUT_MS), client.request(req)).await {
+                        Ok(Ok(_res)) => {
+                            state.write().await.set_host_health(host, true);
+                            println!("Worker {host} Healthy");
+                        }
+                        _ => {
+                            state.write().await.set_host_health(host, false);
+                            println!("Worker {host} Unhealthy");
+                        }
+                    }
+                }
+            }
+        });
     }
 }
 

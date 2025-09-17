@@ -7,11 +7,15 @@ pub struct LeastConnections;
 
 impl Algorithm for LeastConnections {
     fn get_host(&mut self, hosts: &mut HashMap<SocketAddr, HostStatus>) -> SocketAddr {
-        if let Some((host, x)) = hosts.iter().min_by_key(|(_host, status)| status.open_connections) {
+        if let Some((host, x)) = hosts
+            .iter()
+            .filter(|&(_host, host_status)| host_status.healthy)
+            .min_by_key(|(_host, status)| status.open_connections)
+        {
             println!("Host: {} with {} connections", host, x.open_connections);
             *host
         } else {
-            unreachable!()
+            panic!("No healthy hosts");
         }
     }
 }

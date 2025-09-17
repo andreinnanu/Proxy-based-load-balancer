@@ -5,7 +5,7 @@ use crate::services::{Algorithm, HostStatus};
 #[derive(Clone, Debug, Default)]
 pub struct RoundRobin {
     last_host: usize,
-    hosts_vec: Vec<SocketAddr>
+    hosts_vec: Vec<SocketAddr>,
 }
 
 impl RoundRobin {
@@ -17,15 +17,22 @@ impl RoundRobin {
 
         Self {
             hosts_vec,
-            last_host: 0
+            last_host: 0,
         }
     }
 }
 
 impl Algorithm for RoundRobin {
-    fn get_host(&mut self, _hosts: &mut HashMap<SocketAddr, HostStatus>) -> SocketAddr {
-        self.last_host = (self.last_host + 1) % self.hosts_vec.len();
+    fn get_host(&mut self, hosts: &mut HashMap<SocketAddr, HostStatus>) -> SocketAddr {
+        for _host in &self.hosts_vec {
+            self.last_host = (self.last_host + 1) % self.hosts_vec.len();
+            if let Some(current_host) = hosts.get(&self.hosts_vec[self.last_host]) {
+                if current_host.healthy {
+                    return self.hosts_vec[self.last_host];
+                }
+            }
+        }
 
-        self.hosts_vec[self.last_host]
+        panic!("No healthy hosts");
     }
 }
