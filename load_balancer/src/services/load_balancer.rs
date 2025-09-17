@@ -150,12 +150,15 @@ async fn forward_request(
     let resp = match client.request(new_req).await {
         Ok(r) => r,
         Err(_) => {
+            state.write().await.on_disconnect(&host);
             return Ok(build_http_response(502, "Upstream request failed"));
         }
     };
 
+    state.write().await.on_disconnect(&host);
     Ok(resp.map(|b| b.boxed()))
 }
+
 fn build_http_response(response_status: u16, msg: &str) -> Response<BoxBody<Bytes, hyper::Error>> {
     let body: BoxBody<Bytes, hyper::Error> = Full::new(Bytes::from(msg.to_owned()))
         .map_err(|e| match e {})
