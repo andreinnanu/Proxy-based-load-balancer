@@ -23,16 +23,16 @@ impl RoundRobin {
 }
 
 impl Algorithm for RoundRobin {
-    fn get_host(&mut self, hosts: &mut HashMap<SocketAddr, HostStatus>) -> SocketAddr {
+    fn get_host(&mut self, hosts: &mut HashMap<SocketAddr, HostStatus>) -> Option<SocketAddr> {
         for _host in &self.hosts_vec {
             self.last_host = (self.last_host + 1) % self.hosts_vec.len();
             if let Some(current_host) = hosts.get(&self.hosts_vec[self.last_host]) {
                 if current_host.healthy {
-                    return self.hosts_vec[self.last_host];
+                    return Some(self.hosts_vec[self.last_host]);
                 }
             }
         }
 
-        panic!("No healthy hosts");
+        None
     }
 }

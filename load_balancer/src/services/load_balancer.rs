@@ -126,7 +126,11 @@ async fn forward_request(
     state: Arc<RwLock<LoadBalancerState>>,
     client: Arc<Client<HttpConnector, Incoming>>,
 ) -> ProxyResult {
-    let host = state.write().await.get_host();
+    let host = match state.write().await.get_host() {
+        Some(host) => host,
+        None => return Ok(build_http_response(503, "No available workers")),
+    };
+
     println!("Forwarding request to {host}");
 
     let mut parts = req.uri().clone().into_parts();

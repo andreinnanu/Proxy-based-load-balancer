@@ -40,10 +40,13 @@ impl LoadBalancerState {
         Self { hosts, algorithm }
     }
 
-    pub fn get_host(&mut self) -> SocketAddr {
-        let host = self.algorithm.get_host(&mut self.hosts);
-        self.increase_connections(&host);
-        host
+    pub fn get_host(&mut self) -> Option<SocketAddr> {
+        if let Some(host) = self.algorithm.get_host(&mut self.hosts) {
+            self.increase_connections(&host);
+            return Some(host);
+        }
+        
+        None
     }
 
     pub fn on_disconnect(&mut self, host: &SocketAddr) {
