@@ -36,3 +36,4 @@ jobs:
       working-directory: ./load_balancer
       run: |
         cargo build --verbose
+        cargo test --verbose
