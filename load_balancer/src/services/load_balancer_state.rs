@@ -21,8 +21,8 @@ impl HostStatus {
 }
 
 pub struct LoadBalancerState {
-    hosts: HashMap<SocketAddr, HostStatus>,
-    algorithm: Box<dyn Algorithm>,
+    pub hosts: HashMap<SocketAddr, HostStatus>,
+    pub algorithm: Box<dyn Algorithm>,
 }
 
 impl LoadBalancerState {
@@ -40,10 +40,13 @@ impl LoadBalancerState {
         Self { hosts, algorithm }
     }
 
-    pub fn get_host(&mut self) -> SocketAddr {
-        let host = self.algorithm.get_host(&mut self.hosts);
-        self.increase_connections(&host);
-        host
+    pub fn get_host(&mut self) -> Option<SocketAddr> {
+        if let Some(host) = self.algorithm.get_host(&mut self.hosts) {
+            self.increase_connections(&host);
+            return Some(host);
+        }
+        
+        None
     }
 
     pub fn on_disconnect(&mut self, host: &SocketAddr) {
@@ -54,6 +57,12 @@ impl LoadBalancerState {
         self.algorithm = match strategy {
             Strategy::RoundRobin => Box::new(RoundRobin::new(&mut self.hosts)),
             Strategy::LeastConnections => Box::new(LeastConnections),
+        }
+    }
+
+    pub fn set_host_health(&mut self, host: &SocketAddr, health: bool) {
+        if let Some(host_status) = self.hosts.get_mut(host) {
+            host_status.healthy = health;
         }
     }
 

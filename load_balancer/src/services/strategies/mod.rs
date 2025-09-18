@@ -16,5 +16,5 @@ pub enum Strategy {
 }
 
 pub trait Algorithm: Send + Sync {
-    fn get_host(&mut self, hosts: &mut HashMap<SocketAddr, HostStatus>) -> SocketAddr;
+    fn get_host(&mut self, hosts: &mut HashMap<SocketAddr, HostStatus>) -> Option<SocketAddr>;
 }
