@@ -1,6 +1,6 @@
 use std::{collections::HashMap, net::SocketAddr};
 
-use crate::services::{Algorithm, HostStatus};
+use crate::services::{Algorithm, HostStatus, Strategy};
 
 #[derive(Clone, Debug, Default)]
 pub struct RoundRobin {
@@ -34,6 +34,10 @@ impl Algorithm for RoundRobin {
         }
 
         None
+    }
+    
+    fn get_strategy(&mut self) -> Strategy {
+        Strategy::RoundRobin
     }
 }
 

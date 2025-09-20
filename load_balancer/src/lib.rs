@@ -20,6 +20,7 @@ pub async fn run(addr: SocketAddr, config_file: &PathBuf) -> Result<()> {
         LoadBalancer::new(Arc::new(RwLock::new(LoadBalancerState::new(config_file))));
 
     load_balancer.spawn_health_check_task().await;
+    load_balancer.spawn_adaptive_engine().await;
 
     loop {
         let (stream, _) = listener.accept().await?;
