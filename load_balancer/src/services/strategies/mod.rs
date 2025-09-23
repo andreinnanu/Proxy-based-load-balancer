@@ -9,7 +9,7 @@ use strum_macros::{AsRefStr, EnumString};
 
 use crate::services::HostStatus;
 
-#[derive(AsRefStr, EnumString)]
+#[derive(AsRefStr, EnumString, PartialEq)]
 pub enum Strategy {
     RoundRobin,
     LeastConnections,
@@ -17,4 +17,5 @@ pub enum Strategy {
 
 pub trait Algorithm: Send + Sync {
     fn get_host(&mut self, hosts: &mut HashMap<SocketAddr, HostStatus>) -> Option<SocketAddr>;
+    fn get_strategy(&mut self) -> Strategy;
 }

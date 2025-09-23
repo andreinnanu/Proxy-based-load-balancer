@@ -1,6 +1,6 @@
 use std::{collections::HashMap, net::SocketAddr};
 
-use crate::services::{Algorithm, HostStatus};
+use crate::services::{Algorithm, HostStatus, Strategy};
 
 #[derive(Clone, Debug, Default)]
 pub struct LeastConnections;
@@ -17,6 +17,10 @@ impl Algorithm for LeastConnections {
         } else {
             None
         }
+    }
+    
+    fn get_strategy(&mut self) -> Strategy {
+        Strategy::LeastConnections
     }
 }
 

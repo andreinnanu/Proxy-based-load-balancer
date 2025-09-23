@@ -22,7 +22,9 @@ use tower::Service;
 use crate::{
     services::{LoadBalancerState, Strategy},
     utils::{
-        algorithm::{STRATEGY_QUERY_PARAM, SWITCH_ALGORITHM_ENDPOINT},
+        algorithm::{
+            ALGORITHM_SWITCH_TIMEOUT_SEC, STRATEGY_QUERY_PARAM, SWITCH_ALGORITHM_ENDPOINT,
+        },
         constants::health_check::{CHECK_INTERVAL_SEC, TIMEOUT_MS},
     },
 };
@@ -39,6 +41,25 @@ impl LoadBalancer {
             state,
             client: Arc::new(Client::builder(TokioExecutor::new()).build(HttpConnector::new())),
         }
+    }
+
+    pub async fn spawn_adaptive_engine(&self) {
+        let state = self.state.clone();
+        tokio::spawn(async move {
+            let mut interval = time::interval(Duration::from_secs(CHECK_INTERVAL_SEC));
+
+            loop {
+                interval.tick().await;
+
+                let next_strategy = match state.read().await.is_worker_overloaded() {
+                    true => Strategy::LeastConnections,
+                    false => Strategy::RoundRobin,
+                };
+                if state.write().await.set_algorithm(next_strategy) {
+                    time::sleep(Duration::from_secs(ALGORITHM_SWITCH_TIMEOUT_SEC)).await;
+                }
+            }
+        });
     }
 
     pub async fn spawn_health_check_task(&self) {
