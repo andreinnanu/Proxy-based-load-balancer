@@ -29,6 +29,22 @@ use crate::{
     },
 };
 
+struct ConnectionGuard {
+    host: SocketAddr,
+    state: Arc<RwLock<LoadBalancerState>>,
+}
+
+impl Drop for ConnectionGuard {
+    fn drop(&mut self) {
+        let state = self.state.clone();
+        let host = self.host;
+        
+        tokio::spawn(async move {
+            state.write().await.on_disconnect(&host);
+        });
+    }
+}
+
 #[derive(Clone)]
 pub struct LoadBalancer {
     state: Arc<RwLock<LoadBalancerState>>,
@@ -114,7 +130,19 @@ impl Service<Request<Incoming>> for LoadBalancer {
         Box::pin(async move {
             match (req.method(), req.uri().path()) {
                 (&Method::GET, SWITCH_ALGORITHM_ENDPOINT) => switch_algorithm(req, state).await,
-                _ => forward_request(req, state, client).await,
+                _ =>  {
+                    let host = match state.write().await.get_host() {
+                        Some(host) => host,
+                        None => return Ok(build_http_response(503, "No available workers")),
+                    };
+
+                    let _guard = ConnectionGuard {
+                        host,
+                        state
+                    };
+
+                    forward_request(req, client, host).await
+                },
             }
         })
     }
@@ -144,14 +172,9 @@ async fn switch_algorithm(
 
 async fn forward_request(
     req: Request<Incoming>,
-    state: Arc<RwLock<LoadBalancerState>>,
     client: Arc<Client<HttpConnector, Incoming>>,
+    host: SocketAddr
 ) -> ProxyResult {
-    let host = match state.write().await.get_host() {
-        Some(host) => host,
-        None => return Ok(build_http_response(503, "No available workers")),
-    };
-
     println!("Forwarding request to {host}");
 
     let mut parts = req.uri().clone().into_parts();
@@ -175,12 +198,10 @@ async fn forward_request(
     let resp = match client.request(new_req).await {
         Ok(r) => r,
         Err(_) => {
-            state.write().await.on_disconnect(&host);
             return Ok(build_http_response(502, "Upstream request failed"));
         }
     };
 
-    state.write().await.on_disconnect(&host);
     Ok(resp.map(|b| b.boxed()))
 }
 
