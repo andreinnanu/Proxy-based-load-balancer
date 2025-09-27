@@ -17,6 +17,6 @@ export let options = {
 };
 
 export default function () {
-    const res = http.get(`${BASE_URL}/work?duration_millis=50`);
+    const res = http.get(`${BASE_URL}/work`);
     responseTime.add(res.timings.duration);
 }

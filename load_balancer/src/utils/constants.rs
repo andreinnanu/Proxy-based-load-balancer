@@ -1,7 +1,7 @@
 pub mod algorithm {
     pub const SWITCH_ALGORITHM_ENDPOINT: &str = "/switch-algorithm";
     pub const STRATEGY_QUERY_PARAM: &str = "strategy";
-    pub const OVERLOAD_FACTOR: f64 = 2.5;
+    pub const OVERLOAD_FACTOR: f64 = 10.0;
     pub const ALGORITHM_SWITCH_TIMEOUT_SEC: u64 = 30;
 }
 
