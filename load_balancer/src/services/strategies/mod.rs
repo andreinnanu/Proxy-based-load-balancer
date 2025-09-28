@@ -9,7 +9,7 @@ use strum_macros::{AsRefStr, EnumString};
 
 use crate::services::HostStatus;
 
-#[derive(AsRefStr, EnumString, PartialEq)]
+#[derive(AsRefStr, EnumString, PartialEq, Debug)]
 pub enum Strategy {
     RoundRobin,
     LeastConnections,

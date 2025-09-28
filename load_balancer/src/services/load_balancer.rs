@@ -52,6 +52,7 @@ pub struct LoadBalancer {
 }
 
 impl LoadBalancer {
+    #[tracing::instrument(name = "Initializing load balancer", skip_all, level = "info")]
     pub fn new(state: Arc<RwLock<LoadBalancerState>>) -> Self {
         Self {
             state,
@@ -59,6 +60,7 @@ impl LoadBalancer {
         }
     }
 
+    #[tracing::instrument(name = "Spawning adaptive engine", skip(self), level = "info")]
     pub async fn spawn_adaptive_engine(&self) {
         let state = self.state.clone();
         tokio::spawn(async move {
@@ -78,6 +80,7 @@ impl LoadBalancer {
         });
     }
 
+    #[tracing::instrument(name = "Spawning health check task", skip(self), level = "info")]
     pub async fn spawn_health_check_task(&self) {
         let hosts: Vec<SocketAddr> = self.state.read().await.hosts.keys().cloned().collect();
         let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new()).build_http();
@@ -98,11 +101,9 @@ impl LoadBalancer {
                     match timeout(Duration::from_millis(TIMEOUT_MS), client.request(req)).await {
                         Ok(Ok(_res)) => {
                             state.write().await.set_host_health(host, true);
-                            println!("Worker {host} Healthy");
                         }
                         _ => {
                             state.write().await.set_host_health(host, false);
-                            println!("Worker {host} Unhealthy");
                         }
                     }
                 }
@@ -148,6 +149,7 @@ impl Service<Request<Incoming>> for LoadBalancer {
     }
 }
 
+#[tracing::instrument(name = "Switch algorithm request", skip_all, level = "debug")]
 async fn switch_algorithm(
     req: Request<Incoming>,
     state: Arc<RwLock<LoadBalancerState>>,
@@ -170,13 +172,12 @@ async fn switch_algorithm(
     Ok(build_http_response(200, "Strategy updated"))
 }
 
+#[tracing::instrument(name = "Forward request to worker", skip(req, client), level = "debug")]
 async fn forward_request(
     req: Request<Incoming>,
     client: Arc<Client<HttpConnector, Incoming>>,
     host: SocketAddr
 ) -> ProxyResult {
-    println!("Forwarding request to {host}");
-
     let mut parts = req.uri().clone().into_parts();
 
     if parts.scheme.is_none() {
