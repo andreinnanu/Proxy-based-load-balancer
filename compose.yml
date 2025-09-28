@@ -26,6 +26,8 @@ services:
     networks:
       app_net:
         ipv4_address: 172.20.0.100
+    environment:
+      RUST_LOG: "info"
 
 # Workers are defined manually with static IPs instead of using scaling.
 # This avoids relying on Docker DNS for internal load-balancing within the network. 

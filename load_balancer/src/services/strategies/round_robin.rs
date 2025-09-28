@@ -35,8 +35,8 @@ impl Algorithm for RoundRobin {
 
         None
     }
-    
-    fn get_strategy(&mut self) -> Strategy {
+
+    fn get_strategy(&self) -> Strategy {
         Strategy::RoundRobin
     }
 }
@@ -45,15 +45,20 @@ impl Algorithm for RoundRobin {
 mod tests {
     use super::*;
     use rstest::*;
-    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
     use std::collections::HashMap;
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    use std::time::Duration;
 
     fn make_addr(octet: u8) -> SocketAddr {
         SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, octet)), 8080)
     }
 
     fn host(healthy: bool, open_connections: u32) -> HostStatus {
-        HostStatus { healthy, open_connections }
+        HostStatus {
+            healthy,
+            open_connections,
+            last_request_latency: Duration::from_millis(0),
+        }
     }
 
     #[fixture]
@@ -72,9 +77,12 @@ mod tests {
     }
 
     #[rstest]
-    fn test_round_robin_cycles(mut rr: RoundRobin, mut healthy_hosts: HashMap<SocketAddr, HostStatus>) {
+    fn test_round_robin_cycles(
+        mut rr: RoundRobin,
+        mut healthy_hosts: HashMap<SocketAddr, HostStatus>,
+    ) {
         let first_host = rr.get_host(&mut healthy_hosts);
-        
+
         for _ in 0..healthy_hosts.keys().len() - 1 {
             let _ = rr.get_host(&mut healthy_hosts);
         }
@@ -114,4 +122,3 @@ mod tests {
         assert_eq!(rr.get_host(&mut hosts), None);
     }
 }
-

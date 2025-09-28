@@ -7,8 +7,8 @@ const BASE_URL = __ENV.BASE_URL || "http://localhost:3000";
 
 export let options = {
     stages: [
-        { duration: "2m", target: 1000 },
-        { duration: "2m", target: 1000 },
+        { duration: "2m", target: 2000 },
+        { duration: "2m", target: 2000 },
         { duration: "30s", target: 0 },
     ],
     thresholds: {
