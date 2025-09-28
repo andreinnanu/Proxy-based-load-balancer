@@ -32,53 +32,53 @@ services:
   worker1:
     build:
       context: ./worker
-    expose:
-      - "7777"
     networks:
       app_net:
         ipv4_address: 172.20.0.2
+    environment:
+      WORK_DURATION_MS: 50
 
   worker2:
     build:
       context: ./worker
-    expose:
-      - "7777"
     networks:
       app_net:
         ipv4_address: 172.20.0.3
+    environment:
+      WORK_DURATION_MS: 50
 
   worker3:
     build:
       context: ./worker
-    expose:
-      - "7777"
     networks:
       app_net:
         ipv4_address: 172.20.0.4
+    environment:
+      WORK_DURATION_MS: 50
 
   worker4:
     build:
       context: ./worker
-    expose:
-      - "7777"
     networks:
       app_net:
         ipv4_address: 172.20.0.5
+    environment:
+      WORK_DURATION_MS: 50
 
   worker5:
     build:
       context: ./worker
-    expose:
-      - "7777"
     networks:
       app_net:
         ipv4_address: 172.20.0.6
+    environment:
+      WORK_DURATION_MS: 150
 
   worker6:
     build:
       context: ./worker
-    expose:
-      - "7777"
     networks:
       app_net:
         ipv4_address: 172.20.0.7
+    environment:
+      WORK_DURATION_MS: 150

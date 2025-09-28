@@ -29,7 +29,7 @@ where
     }
 
     fn call(&mut self, req: Req) -> Self::Future {
-        println!("processing request: {} {}", req.method(), req.uri().path());
+        tracing::debug!(method = %req.method(), host = %req.uri(), "Processing request");
         self.inner.call(req)
     }
 }

@@ -28,6 +28,7 @@ pub struct LoadBalancerState {
 }
 
 impl LoadBalancerState {
+    #[tracing::instrument(name = "Initializing load balancer state", level = "info")]
     pub fn new(config_file: &PathBuf) -> Self {
         let config = Config::new(config_file);
 
@@ -42,6 +43,7 @@ impl LoadBalancerState {
         Self { hosts, algorithm }
     }
 
+    #[tracing::instrument(name = "Retrieving next host", skip_all, level = "debug")]
     pub fn get_host(&mut self) -> Option<SocketAddr> {
         if let Some(host) = self.algorithm.get_host(&mut self.hosts) {
             self.increase_connections(&host);
@@ -51,13 +53,14 @@ impl LoadBalancerState {
         None
     }
 
+    #[tracing::instrument(name = "Disconnect", skip(self), level = "debug")]
     pub fn on_disconnect(&mut self, host: &SocketAddr) {
         self.decrease_connections(host);
     }
 
+    #[tracing::instrument(name = "Switching algorithm", skip(self), level = "debug")]
     pub fn set_algorithm(&mut self, strategy: Strategy) -> bool {
         if self.algorithm.get_strategy() != strategy {
-            println!("Switching to {}", strategy.as_ref());
             self.algorithm = match strategy {
                 Strategy::RoundRobin => Box::new(RoundRobin::new(&mut self.hosts)),
                 Strategy::LeastConnections => Box::new(LeastConnections),
@@ -69,12 +72,14 @@ impl LoadBalancerState {
         false
     }
 
+    #[tracing::instrument(name = "Set host health", skip(self), level = "debug")]
     pub fn set_host_health(&mut self, host: &SocketAddr, health: bool) {
         if let Some(host_status) = self.hosts.get_mut(host) {
             host_status.healthy = health;
         }
     }
 
+    #[tracing::instrument(name = "Overload check", skip_all, level = "debug")]
     pub fn is_worker_overloaded(&self) -> bool {
         let connections: Vec<f64> = self
             .hosts
@@ -89,17 +94,45 @@ impl LoadBalancerState {
 
         let mad = Data::new(deviations).median().max(1.0);
 
+        if tracing::enabled!(tracing::Level::DEBUG) {
+            tracing::debug!("===========================");
+            tracing::debug!(%median, %mad, "calculated median and MAD");
+
+            for (host, host_status) in self.hosts.iter() {
+                let overloaded =
+                    (host_status.open_connections as f64 - median).abs() > OVERLOAD_FACTOR * mad;
+
+                if overloaded {
+                    tracing::debug!(
+                        %host,
+                        connections = host_status.open_connections,
+                        "OVERLOADED"
+                    );
+                } else {
+                    tracing::debug!(
+                        %host,
+                        connections = host_status.open_connections,
+                        "normal load"
+                    );
+                }
+            }
+
+            tracing::debug!("===========================");
+        }
+
         connections
             .iter()
             .any(|&x| (x - median).abs() > OVERLOAD_FACTOR * mad)
     }
 
+    #[tracing::instrument(name = "Increase connections", skip(self), level = "debug")]
     fn increase_connections(&mut self, host: &SocketAddr) {
         if let Some(status) = self.hosts.get_mut(host) {
             status.open_connections += 1;
         }
     }
 
+    #[tracing::instrument(name = "Decrease connections", skip(self), level = "debug")]
     fn decrease_connections(&mut self, host: &SocketAddr) {
         if let Some(status) = self.hosts.get_mut(host) {
             status.open_connections -= 1;

@@ -4,6 +4,7 @@ use axum::{Router, extract::Query, http::StatusCode, response::IntoResponse, rou
 use serde::Deserialize;
 
 const ADDRESS: &str = "0.0.0.0:7777";
+const WORK_DURATION_MS: &str = "WORK_DURATION_MS";
 
 #[tokio::main]
 async fn main() {
@@ -25,6 +26,16 @@ struct WorkParams {
 }
 
 async fn work(Query(params): Query<WorkParams>) -> impl IntoResponse {
-    tokio::time::sleep(Duration::from_millis(params.duration_millis.unwrap_or(10))).await;
+    let work_duration = match params.duration_millis {
+        Some(duration) => duration,
+        None => std::env::var(WORK_DURATION_MS)
+            .unwrap_or("10".to_owned())
+            .parse::<u64>()
+            .unwrap_or_else(|_| panic!("{WORK_DURATION_MS} to be u64")),
+    };
+    tokio::time::sleep(Duration::from_millis(
+        params.duration_millis.unwrap_or(work_duration),
+    ))
+    .await;
     (StatusCode::OK, "worked hard")
 }

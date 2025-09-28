@@ -7,12 +7,11 @@ pub struct LeastConnections;
 
 impl Algorithm for LeastConnections {
     fn get_host(&mut self, hosts: &mut HashMap<SocketAddr, HostStatus>) -> Option<SocketAddr> {
-        if let Some((host, x)) = hosts
+        if let Some((host, _)) = hosts
             .iter()
             .filter(|&(_host, host_status)| host_status.healthy)
             .min_by_key(|(_host, status)| status.open_connections)
-        {
-            println!("Host: {} with {} connections", host, x.open_connections);
+        {   
             Some(*host)
         } else {
             None

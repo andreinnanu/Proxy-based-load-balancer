@@ -14,6 +14,7 @@ pub mod middleware;
 pub mod services;
 pub mod utils;
 
+#[tracing::instrument(name = "Starting load balancer", level = "info")]
 pub async fn run(addr: SocketAddr, config_file: &PathBuf) -> Result<()> {
     let listener = TcpListener::bind(addr).await?;
     let load_balancer =
@@ -39,7 +40,7 @@ pub async fn run(addr: SocketAddr, config_file: &PathBuf) -> Result<()> {
                 .serve_connection(io, hyper_service)
                 .await
             {
-                eprintln!("server error: {err}");
+                tracing::error!(err = %err, "server error");
             }
         });
     }
