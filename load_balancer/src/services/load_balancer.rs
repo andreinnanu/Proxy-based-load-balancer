@@ -15,7 +15,7 @@ use hyper_util::{
 };
 use tokio::{
     sync::RwLock,
-    time::{self, timeout},
+    time::{self, Instant, timeout},
 };
 use tower::Service;
 
@@ -38,7 +38,7 @@ impl Drop for ConnectionGuard {
     fn drop(&mut self) {
         let state = self.state.clone();
         let host = self.host;
-        
+
         tokio::spawn(async move {
             state.write().await.on_disconnect(&host);
         });
@@ -69,11 +69,23 @@ impl LoadBalancer {
             loop {
                 interval.tick().await;
 
-                let next_strategy = match state.read().await.is_worker_overloaded() {
-                    true => Strategy::LeastConnections,
-                    false => Strategy::RoundRobin,
+                let overloaded_worker;
+                let slow_worker;
+
+                {
+                    let state_guard = state.read().await;
+                    overloaded_worker = state_guard.any_worker_connection_outlier();
+                    slow_worker = state_guard.any_worker_latency_outlier();
+                }
+
+                let next_strategy = match (overloaded_worker, slow_worker) {
+                    (false, false) => Strategy::RoundRobin,
+                    (true, false) => Strategy::LeastConnections,
+                    _ => Strategy::EWMA,
                 };
-                if state.write().await.set_algorithm(next_strategy) {
+
+                if state.write().await.set_algorithm(next_strategy.clone()) {
+                    tracing::info!("Switching algorithm to {}", next_strategy.as_ref());
                     time::sleep(Duration::from_secs(ALGORITHM_SWITCH_TIMEOUT_SEC)).await;
                 }
             }
@@ -131,7 +143,7 @@ impl Service<Request<Incoming>> for LoadBalancer {
         Box::pin(async move {
             match (req.method(), req.uri().path()) {
                 (&Method::GET, SWITCH_ALGORITHM_ENDPOINT) => switch_algorithm(req, state).await,
-                _ =>  {
+                _ => {
                     let host = match state.write().await.get_host() {
                         Some(host) => host,
                         None => return Ok(build_http_response(503, "No available workers")),
@@ -139,11 +151,11 @@ impl Service<Request<Incoming>> for LoadBalancer {
 
                     let _guard = ConnectionGuard {
                         host,
-                        state
+                        state: state.clone(),
                     };
 
-                    forward_request(req, client, host).await
-                },
+                    forward_request(req, client, state, host).await
+                }
             }
         })
     }
@@ -172,11 +184,16 @@ async fn switch_algorithm(
     Ok(build_http_response(200, "Strategy updated"))
 }
 
-#[tracing::instrument(name = "Forward request to worker", skip(req, client), level = "debug")]
+#[tracing::instrument(
+    name = "Forward request to worker",
+    skip(req, client, state),
+    level = "debug"
+)]
 async fn forward_request(
     req: Request<Incoming>,
     client: Arc<Client<HttpConnector, Incoming>>,
-    host: SocketAddr
+    state: Arc<RwLock<LoadBalancerState>>,
+    host: SocketAddr,
 ) -> ProxyResult {
     let mut parts = req.uri().clone().into_parts();
 
@@ -196,14 +213,23 @@ async fn forward_request(
     let mut new_req = req.map(|b| b);
     *new_req.uri_mut() = new_uri;
 
-    let resp = match client.request(new_req).await {
+    let start = Instant::now();
+    let response_result = client.request(new_req).await;
+    let request_latency = start.elapsed();
+
+    state
+        .write()
+        .await
+        .set_current_latency(&host, request_latency);
+
+    let response = match response_result {
         Ok(r) => r,
         Err(_) => {
             return Ok(build_http_response(502, "Upstream request failed"));
         }
     };
 
-    Ok(resp.map(|b| b.boxed()))
+    Ok(response.map(|b| b.boxed()))
 }
 
 fn build_http_response(response_status: u16, msg: &str) -> Response<BoxBody<Bytes, hyper::Error>> {

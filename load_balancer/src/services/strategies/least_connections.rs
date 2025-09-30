@@ -11,14 +11,14 @@ impl Algorithm for LeastConnections {
             .iter()
             .filter(|&(_host, host_status)| host_status.healthy)
             .min_by_key(|(_host, status)| status.open_connections)
-        {   
+        {
             Some(*host)
         } else {
             None
         }
     }
-    
-    fn get_strategy(&mut self) -> Strategy {
+
+    fn get_strategy(&self) -> Strategy {
         Strategy::LeastConnections
     }
 }
@@ -29,13 +29,18 @@ mod tests {
     use rstest::*;
     use std::collections::HashMap;
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    use std::time::Duration;
 
     fn make_addr(octet: u8) -> SocketAddr {
         SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, octet)), 8080)
     }
 
     fn host(healthy: bool, open_connections: u32) -> HostStatus {
-        HostStatus { healthy, open_connections }
+        HostStatus {
+            healthy,
+            open_connections,
+            last_request_latency: Duration::from_millis(0),
+        }
     }
 
     #[rstest]
