@@ -43,6 +43,7 @@ services:
       WORK_DURATION_MS: 50
 
   worker2:
+    image: andreinanu/lb_worker:latest
     build:
       context: ./worker
     networks:
@@ -52,6 +53,7 @@ services:
       WORK_DURATION_MS: 50
 
   worker3:
+    image: andreinanu/lb_worker:latest
     build:
       context: ./worker
     networks:
@@ -61,6 +63,7 @@ services:
       WORK_DURATION_MS: 50
 
   worker4:
+    image: andreinanu/lb_worker:latest
     build:
       context: ./worker
     networks:
@@ -70,6 +73,7 @@ services:
       WORK_DURATION_MS: 50
 
   worker5:
+    image: andreinanu/lb_worker:latest
     build:
       context: ./worker
     networks:
@@ -79,6 +83,7 @@ services:
       WORK_DURATION_MS: 150
 
   worker6:
+    image: andreinanu/lb_worker:latest
     build:
       context: ./worker
     networks:
