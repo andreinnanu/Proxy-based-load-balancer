@@ -57,3 +57,28 @@ jobs:
         set: |
           *.cache-from=type=gha
           *.cache-to=type=gha,mode=max
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Test SSH connection
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER || 'ec2-user' }}@${{ secrets.EC2_HOST }} "hostname"
+
+      - name: Copy docker-compose.yml to EC2
+        run: |
+          scp -o StrictHostKeyChecking=no docker-compose.yml \
+          ${{ secrets.EC2_USER || 'ec2-user' }}@${{ secrets.EC2_HOST }}:/home/ec2-user/
+
+      - name: Run docker compose
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER || 'ec2-user' }}@${{ secrets.EC2_HOST }} \
+          "cd /home/ec2-user && docker-compose up -d"
