@@ -70,13 +70,9 @@ jobs:
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-      - name: Test SSH connection
+      - name: Copy resources to EC2
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER || 'ec2-user' }}@${{ secrets.EC2_HOST }} "hostname"
-
-      - name: Copy docker-compose.yml to EC2
-        run: |
-          scp -o StrictHostKeyChecking=no compose.yml \
+          scp -o StrictHostKeyChecking=no -r load_tests/latency_percentiles.js nginx/ resources/ compose.yml \
           ${{ secrets.EC2_USER || 'ec2-user' }}@${{ secrets.EC2_HOST }}:/home/ec2-user/
 
       - name: Run docker compose

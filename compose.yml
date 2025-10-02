@@ -23,7 +23,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./load_balancer/resources/:/app/
+      - ./resources/:/app/
     networks:
       app_net:
         ipv4_address: 172.20.0.100
