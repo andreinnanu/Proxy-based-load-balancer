@@ -76,7 +76,7 @@ jobs:
 
       - name: Copy docker-compose.yml to EC2
         run: |
-          scp -o StrictHostKeyChecking=no docker-compose.yml \
+          scp -o StrictHostKeyChecking=no compose.yml \
           ${{ secrets.EC2_USER || 'ec2-user' }}@${{ secrets.EC2_HOST }}:/home/ec2-user/
 
       - name: Run docker compose
