@@ -17,13 +17,13 @@ services:
         ipv4_address: 172.20.0.101
 
   load_balancer:
-    image: andreinanu/rusty_load_balancer
+    image: andreinanu/rusty_load_balancer:latest
     build:
       context: ./load_balancer
     ports:
       - "3000:3000"
     volumes:
-      - ./load_balancer/resources/:/app/
+      - ./resources/:/app/
     networks:
       app_net:
         ipv4_address: 172.20.0.100
@@ -33,7 +33,7 @@ services:
 # Workers are defined manually with static IPs instead of using scaling.
 # This avoids relying on Docker DNS for internal load-balancing within the network. 
   worker1:
-    image: andreinanu/lb_worker
+    image: andreinanu/lb_worker:latest
     build:
       context: ./worker
     networks:
@@ -43,6 +43,7 @@ services:
       WORK_DURATION_MS: 50
 
   worker2:
+    image: andreinanu/lb_worker:latest
     build:
       context: ./worker
     networks:
@@ -52,6 +53,7 @@ services:
       WORK_DURATION_MS: 50
 
   worker3:
+    image: andreinanu/lb_worker:latest
     build:
       context: ./worker
     networks:
@@ -61,6 +63,7 @@ services:
       WORK_DURATION_MS: 50
 
   worker4:
+    image: andreinanu/lb_worker:latest
     build:
       context: ./worker
     networks:
@@ -70,6 +73,7 @@ services:
       WORK_DURATION_MS: 50
 
   worker5:
+    image: andreinanu/lb_worker:latest
     build:
       context: ./worker
     networks:
@@ -79,6 +83,7 @@ services:
       WORK_DURATION_MS: 150
 
   worker6:
+    image: andreinanu/lb_worker:latest
     build:
       context: ./worker
     networks:
