@@ -1,5 +1,11 @@
 # Proxy based load balancer
 
+Rust proxy load balancer with an adaptive engine for metric-driven load distribution, including health checks, runtime decisioning and fault tolerance.
+
+Benchmark suite demonstrates superior performance during load testing compared to a similarly configured Nginx.
+
+![Performance comparison vs Nginx](documentation/resources/RustLB_vs_Nginx.png)
+
 ## Workers
 
 Each worker runs in its own container.

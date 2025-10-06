@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 percentiles = ['p50', 'p90', 'p99', 'p99.9']
 
 # Load test results
-rust_lb = [160.38, 263.95, 335.13, 432.7]
-nginx = [163.87, 335.09, 502.24, 648.11]
+rust_lb = [162.27, 270.93, 379.84, 494.29]
+nginx = [172.79, 356.76, 550.69, 709.89]
 
 plt.figure(figsize=(8,5))
 plt.plot(percentiles, rust_lb, marker='o', linestyle='-', label='Rust LB')
